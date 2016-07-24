@@ -16,6 +16,8 @@
 #
 ###=============================================================================
 
+module Infra
+
 using Requests: get, parse
 using Docker
 
@@ -291,4 +293,6 @@ function net_usage(key::Integer)
     tx = stats["tx_bytes"]
     rx = stats["rx_bytes"]
     [tx,rx]
+end
+
 end
