@@ -1,15 +1,15 @@
-# Infra.jl
-
-This repository is part of project [CloudArray](https://github.com/gsd-ufal/CloudArray.jl)
-
-Infra.jl books virtual machines (VMs) and creates, configures, and instantiates Docker containers on top of VMs. Then Julia Workers are configured and deployed on containers. 
-
 # Table of Contents
 
-
-1. [Installation](https://github.com/gsd-ufal/CloudArray.jl#installation)
+1. [Overview](https://github.com/gsd-ufal/Infra.jl#overview)
+1. [Installation](https://github.com/gsd-ufal/Infra.jl#installation)
 2. [Usage](https://github.com/gsd-ufal/Infra.jl#usage)
 3. [Documentation](https://github.com/gsd-ufal/Infra.jl#documentation)
+
+# Overview
+
+This repository is part of [CloudArray](https://github.com/gsd-ufal/CloudArray.jl) project
+
+Infra.jl books virtual machines (VMs) and creates, configures, and instantiates Docker containers on top of VMs. Then Julia Workers are configured and deployed on containers. 
 
 # Installation
 
