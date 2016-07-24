@@ -17,12 +17,6 @@
 #       CREATED: 2016-07-07 03:31
 ###=============================================================================
 
-# DISCLAIMER: based on examples from:
-# 	https://github.com/JuliaWeb/HttpServer.jl/tree/master/examples
-
-dockerList=($(docker ps -qa))
-rmList=()
-
 function isWorker()
 {
         if [ $(docker exec $1 ps aux | grep -ic "julia") -ne 0 ]; then
@@ -34,14 +28,19 @@ function isWorker()
 
 while :
 do
-        for cid in ${dockerList[@]}; do
-                if [ "$(isWorker $cid)" == false ]; then
-                        rmList+=($cid)
-                fi
-        done
 
-        if [ -n "$rmList" ]; then
-                docker rm --force ${rmList[@]}
-        fi
-        sleep 600 # wait 10 minutes to run again
+    dockerList=($(docker ps -qa))
+    rmList=()
+
+    for cid in ${dockerList[@]}; do
+            if [ "$(isWorker $cid)" == false ]; then
+                    rmList+=($cid)
+            fi
+    done
+
+    if [ -n "$rmList" ]; then
+            docker rm --force ${rmList[@]}
+    fi
+    sleep 600 # wait 10 minutes to run again
+
 done
