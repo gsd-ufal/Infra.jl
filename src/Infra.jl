@@ -28,7 +28,7 @@ global url=""
 global passwd=""
 ssh_key=homedir()*"/.ssh/azkey"
 ssh_pubkey=homedir()*"/.ssh/azkey.pub"
-carray_dir= length(LOAD_PATH) == 3 ? LOAD_PATH[3]*"CloudArray/src" : Pkg.dir("CloudArray")*"/src" # CloudArray package directory
+carray_dir= length(LOAD_PATH) == 3 ? LOAD_PATH[3]*"Infra/src" : Pkg.dir("Infra")*"/src" # Infra package directory
 
 ###=============================================================================
 
