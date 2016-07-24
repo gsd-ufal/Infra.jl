@@ -1,16 +1,18 @@
-using CloudArray
+using Infra
 using DataFrames
 
 function run_tests(reps)
     data = zeros(reps,6)
     for i in 1:reps
         tic()
-        CloudArray.set_host("cloudarray.ddns.net","cloudarray@")
+        Infra.set_host("cloudarray.ddns.net","cloudarray@")
         auth_time=toc()
-        time = CloudArray.create_containers(1,0,512,tunnel=true)
+        time = Infra.create_containers(1,0,512,tunnel=true)
         push!(time,auth_time+sum(time)) # total exec time
         data[i,1] = auth_time
         data[i,2:6] = time
+        rmprocs(workers())
+        Infra.delete_containers(Infra.containers())
     end
     return data
 end
