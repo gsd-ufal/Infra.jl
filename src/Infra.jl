@@ -23,33 +23,57 @@ using Docker
 
 ###== Top-level variables ======================================================
 
-global host=""
-global url=""
-global passwd=""
-ssh_key=homedir()*"/.ssh/azkey"
-ssh_pubkey=homedir()*"/.ssh/azkey.pub"
-carray_dir= length(LOAD_PATH) == 3 ? LOAD_PATH[3]*"Infra/src" : Pkg.dir("Infra")*"/src" # Infra package directory
+const nprocs=16 # number of cpu cores available from server
+const ssh_key=homedir()*"/.ssh/azkey"
+const ssh_pubkey=homedir()*"/.ssh/azkey.pub"
+const carray_dir= length(LOAD_PATH) == 3 ? LOAD_PATH[3]*"Infra/src" : Pkg.dir("Infra")*"/src" # Infra package directory
 
 ###=============================================================================
+
+type GlobalSettings
+    host::ASCIIString
+    url::ASCIIString
+    passwd::ASCIIString
+    cpuset::Array{Int64,1} # number of cpu cores available from server
+end
 
 type Container # Abstraction for Docker container
           cid::AbstractString
           pid::Integer
-          n_of_cpus::Integer
+          cpuset::Array{Int64,1}
           mem_size::Integer
 
-          function Container(cid,pid,n_of_cpus=0,mem_size=512)
-              return new(cid,pid,n_of_cpus,mem_size)
+          function Container(cid,pid,cpuset=[],mem_size=512)
+              return new(cid,pid,cpuset,mem_size)
           end
 end
 
 const map_containers = Dict{Integer, Container}()
+
+GlobalSettings() = GlobalSettings("","","",collect(0:nprocs-1))
+const SETTINGS = GlobalSettings()
+
+set_h(h) = SETTINGS.host=h
+set_url(u) = SETTINGS.url=u
+set_passwd(p) = SETTINGS.passwd=p
+set_cpuset(c) = SETTINGS.cpuset=c
 
 let next_key = 1    # cid -> container id
     global get_next_key
     function get_next_key() retval = next_key
         next_key += 1
         retval
+    end
+end
+
+function parse_cpuset(n_of_cpus)
+    if (n_of_cpus == 0 || length(SETTINGS.cpuset) < n_of_cpus)
+        "",[]
+    else
+        s = strip(string(SETTINGS.cpuset[1:n_of_cpus]),['[',']'])
+        a = SETTINGS.cpuset[1:n_of_cpus]
+        deleteat!(SETTINGS.cpuset,1:n_of_cpus)
+        s,a
     end
 end
 
@@ -67,9 +91,9 @@ set_host("cloudarray.cloudapp.net","password")
 function set_host(h::AbstractString,p::AbstractString)
     reply = success(`$(carray_dir)/cloud_setup.sh $h $p`) # set up ssh. if errors occurs, return false
     if (reply)
-        global host=h
-        global url=h*":4243"
-        global passwd=p
+        set_h(h)
+        set_url(h*":4243")
+        set_passwd(p)
         true
     else
         error("There is an error during SSH configuration. Please see the log for more details: cloud_setup.log")
@@ -78,8 +102,8 @@ function set_host(h::AbstractString,p::AbstractString)
 end
 
 function get_port()
-      response = get("http://$host:8000")
-      parse(Int,join(map(Char,response.data)))
+    response = get("http://$(SETTINGS.host):8000")
+    parse(Int,join(map(Char,response.data)))
 end
 
 @doc """
@@ -114,24 +138,25 @@ function create_containers(n_of_containers::Integer, n_of_cpus=0, mem_size=512;t
             ssh_config = false
             key = get_next_key()
             port = 3000+get_port()
+            n_of_cpus=parse_cpuset(n_of_cpus)
             # Creating a docker container at VM
             info("Creating container ($key)...")
-            container = Docker.create_container("$url","cloudarray:latest",memory=mem_size*(10^6),portBindings=[22,"$port"])
-            Docker.start_container("$url",container["Id"])
+            container = Docker.create_container("$(SETTINGS.url)","cloudarray:latest",memory=mem_size*(10^6),cpuSets=n_of_cpus[1],portBindings=[22,"$port"])
+            Docker.start_container("$(SETTINGS.url)",container["Id"])
             info("Creating container ($key)... OK")
             # Configuring ssh without password (transfer public key to container)
             info("SSH configuration ($key)... ")
             while !ssh_config
-                ssh_config = success(pipeline(`cat $ssh_pubkey`,`sshpass -p $passwd ssh -o StrictHostKeyChecking=no -p $port root@$host 'umask 077; mkdir -p ~/.ssh; cat >> ~/.ssh/authorized_keys'`)) # if ssh configuration is successful: return true or false
+                ssh_config = success(pipeline(`cat $ssh_pubkey`,`sshpass -p $(SETTINGS.passwd) ssh -o StrictHostKeyChecking=no -p $port root@$(SETTINGS.host) 'umask 077; mkdir -p ~/.ssh; cat >> ~/.ssh/authorized_keys'`)) # if ssh configuration is successful: return true or false
                 if !ssh_config
                     info("SSH configuration ($key) failed! Trying again...")
                 end
             end
             info("SSH configuration ($key)... OK")
             info("Adding worker ($key)...")
-            pid = addprocs(["root@$host"];tunnel=tunnel,sshflags=`-i $ssh_key -p $port`,dir="/opt/julia/bin",exename="/opt/julia/bin/julia")
+            pid = addprocs(["root@$(SETTINGS.host)"];tunnel=tunnel,sshflags=`-i $ssh_key -p $port`,dir="/opt/julia/bin",exename="/opt/julia/bin/julia")
             info("Adding worker ($key)... OK")
-            map_containers[key] = Container(chomp(container["Id"]),pid[1],n_of_cpus,mem_size) # Adding Container to Dict
+            map_containers[key] = Container(chomp(container["Id"]),pid[1],n_of_cpus[2],mem_size) # Adding Container to Dict
         end
 end
 
@@ -154,7 +179,8 @@ function delete_containers(args...) #  (splat) variable number of arguments. Ex.
                 container = map_containers[i]
                 rmprocs(container.pid)
                 delete!(map_containers,i)
-                Docker.remove_container("$url","$(container.cid)")
+                set_cpuset(collect(0:nprocs-1))
+                Docker.remove_container("$(SETTINGS.url)","$(container.cid)")
             end
         end
     else
@@ -163,7 +189,8 @@ function delete_containers(args...) #  (splat) variable number of arguments. Ex.
                 container = map_containers[i]
                 rmprocs(container.pid)
                 delete!(map_containers,i)
-                Docker.remove_container("$url","$(container.cid)")
+                set_cpuset([container.cpuset;SETTINGS.cpuset])
+                Docker.remove_container("$(SETTINGS.url)","$(container.cid)")
             end
         end
     end
@@ -208,7 +235,6 @@ list_containers()
 function list_containers()
     for key in sort(collect(keys(map_containers)))
            println("$key => $(map_containers[key])")
-
     end
 end
 
@@ -222,7 +248,7 @@ mem_usage(number_of_container)
 ```
 """ ->
 function mem_usage(key::Integer)
-    Docker.stats_container("$url","$(map_containers[key].cid)")["memory_stats"]["usage"]/10^6
+    Docker.stats_container("$(SETTINGS.url)","$(map_containers[key].cid)")["memory_stats"]["usage"]/10^6
 end
 
 @doc """
@@ -235,7 +261,7 @@ cpu_usage(number_of_container)
 ```
 """ ->
 function cpu_usage(key)
-    stats = Docker.stats_container("$url","$(map_containers[key].cid)")
+    stats = Docker.stats_container("$(SETTINGS.url)","$(map_containers[key].cid)")
 
     percpu_usage = stats["cpu_stats"]["cpu_usage"]["percpu_usage"]
     previousSystem = stats["precpu_stats"]["system_cpu_usage"]
@@ -260,7 +286,7 @@ io_usage(number_of_container)
 ```
 """ ->
 function io_usage(key::Integer)
-    stats = Docker.stats_container("$url","$(map_containers[key].cid)")["blkio_stats"]
+    stats = Docker.stats_container("$(SETTINGS.url)","$(map_containers[key].cid)")["blkio_stats"]
     w = stats["io_service_bytes_recursive"][1]["value"]/10^3   # write
     r = stats["io_service_bytes_recursive"][2]["value"]/10^3   # read
     [w,r]
@@ -279,7 +305,7 @@ net_usage(number_of_container)
 ```
 """ ->
 function net_usage(key::Integer)
-    stats = Docker.stats_container("$url","$(map_containers[key].cid)")["networks"]["eth0"]
+    stats = Docker.stats_container("$(SETTINGS.url)","$(map_containers[key].cid)")["networks"]["eth0"]
     tx = stats["tx_bytes"]
     rx = stats["rx_bytes"]
     [tx,rx]
