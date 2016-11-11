@@ -3,10 +3,8 @@
 1. [Overview](https://github.com/gsd-ufal/Infra.jl#overview)
 1. [Installation](https://github.com/gsd-ufal/Infra.jl#installation)
 2. [Usage](https://github.com/gsd-ufal/Infra.jl#usage)
-3. [Tests](https://github.com/gsd-ufal/Infra.jl#tests)
+3. [Tests](https://github.com/gsd-ufal/Infra.jl/tree/tests/tests)
 4. [Documentation](https://github.com/gsd-ufal/Infra.jl#documentation)
-
-https://github.com/gsd-ufal/Infra.jl/tree/tests/tests
 
 # Overview
 
@@ -60,10 +58,6 @@ Now, you can create julia workers inside containers
 ```Julia
 Infra.create_containers(1,1,512)
 ```
-
-# Tests
-
-Script tests can be found [here](https://github.com/gsd-ufal/Infra.jl/tree/tests/tests).
 
 # Documentation
 
