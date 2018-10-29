@@ -8,9 +8,18 @@
 
 # Overview
 
-This repository is part of [CloudArray](https://github.com/gsd-ufal/CloudArray.jl) project
+
+This repository is part of [CloudArray](https://github.com/gsd-ufal/CloudArray.jl) project.
 
 Infra.jl books virtual machines (VMs) and creates, configures, and instantiates Docker containers on top of VMs. Then Julia Workers are configured and deployed on containers. 
+
+### Paper 
+
+Please see more information about `Infra.jl` at the paper **An automatic deployment support for processing remote sensing data in the Cloud** presented at **[2018 IEEE International Geoscience and Remote Sensing Symposium (IGARSS)](https://ieeexplore.ieee.org/xpl/conhome.jsp?punumber=1000307)**.
+
+**Abstract**. _Master/Worker distributed programming model enables huge remote sensing data processing by assigning tasks to Workers in which data is stored. Cloud computing features include the deployment of Workers by using virtualized technologies such as virtual machines and containers. These features allow programmers to configure, create, and start virtual resources for instance. In order to develop remote sensing applications by taking advantage of high-level programming languages (e.g., R, Matlab, and Julia), users have to manually address Cloud resource deployment. This paper presents the design, implementation, and evaluation of the `Infra.jl` research prototype. `Infra.jl` takes advantage of Julia Master/Worker programming simplicity for providing automatic deployment of Julia Workers in the Cloud. The assessment of `Infra.jl` automatic deployment is only `2.8` seconds in two different Azure Cloud data centers_.
+
+
 
 # Installation
 
